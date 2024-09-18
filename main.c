@@ -13,7 +13,29 @@ struct server {
     struct wlr_allocator *allocator;
 
     struct wl_listener new_output;
+    struct wl_listener frame;
 };
+
+static void output_frame(struct wl_listener *listener, void *data) {
+    struct server *server = wl_container_of(listener, server, frame);
+    struct wlr_output *output = data;
+
+    if (!wlr_output_attach_render(output, NULL)) {
+        return;
+    }
+
+    int width, height;
+    wlr_output_effective_resolution(output, &width, &height);
+
+    // 배경색 설정 (빨간색)
+    float bg_color[4] = {0.0, 0.0, 1.0, 1.0};
+    wlr_renderer_begin(server->renderer, width, height);
+    wlr_renderer_clear(server->renderer, bg_color);
+
+    // 화면에 그리기
+    wlr_renderer_end(server->renderer);
+    wlr_output_commit(output);
+}
 
 static void server_new_output(struct wl_listener *listener, void *data) {
     struct server *server = wl_container_of(listener, server, new_output);
@@ -29,6 +51,10 @@ static void server_new_output(struct wl_listener *listener, void *data) {
             return;
         }
     }
+
+    // 프레임 리스너 설정
+    server->frame.notify = output_frame;
+    wl_signal_add(&output->events.frame, &server->frame);
 
     wlr_log(WLR_DEBUG, "New output %s", output->name);
 }
